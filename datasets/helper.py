@@ -1,5 +1,6 @@
 #MODIFIED CAFFE_TENSORFLOW
 import numpy as np
+from config import cfg
 from models.vgg.vgg_face_embedding import VGG_FACE_16
 
 class DataSpec(object):
@@ -47,8 +48,10 @@ MODELS = (VGG_FACE_16,)
 # The corresponding data specifications for the sample models
 # These specifications are based on how the models were trained.
 # The recommended batch size is based on a Titan X (12GB).
+
+
 MODEL_DATA_SPECS = {
-    VGG_FACE_16:DataSpec(batch_size=10, scale_size=256, crop_size=224, isotropic=True,mean=np.array([93.5940,104.7624,129.1863])),
+    VGG_FACE_16:DataSpec(batch_size=cfg.BATCH_SIZE, scale_size=256, crop_size=224, isotropic=True,mean=np.array([93.5940,104.7624,129.1863])),
 }
 
 

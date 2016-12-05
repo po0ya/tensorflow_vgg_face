@@ -3,8 +3,48 @@
 import os.path as osp
 import numpy as np
 import tensorflow as tf
+from config import cfg
 
 FLAGS = tf.app.flags.FLAGS
+
+
+def process_image_adv(img, scale, isotropic, crop, mean,flip=False,crop_ind=0):
+    '''Crops, scales, and normalizes the given image.
+    scale : The image wil be first scaled to this size.
+            If isotropic is true, the smaller side is rescaled to this,
+            preserving the aspect ratio.
+    crop  : After scaling, depending on crop_ind a crop of the image is given.
+    crope_ind: 0 center, 1 SW, 2 SE, 3 NE, 4 NW crop
+    flip: Whether to flip the image
+    mean  : Subtracted from the image
+    '''
+    # Rescale
+    if flip:
+        img = tf.reverse(img,[False,True,False])
+
+    if isotropic:
+        img_shape = tf.to_float(tf.shape(img)[:2])
+        min_length = tf.minimum(img_shape[0], img_shape[1])
+        new_shape = tf.to_int32((scale / min_length) * img_shape)
+    else:
+        new_shape = tf.pack([scale, scale])
+    img = tf.image.resize_images(img, new_shape)
+    offset = [0,0]
+    if crop_ind == 1:
+        offset[0] = new_shape[0]-crop
+        offset = new_shape-crop
+    elif crop_ind == 2:
+        offset = new_shape-crop
+    elif crop_ind == 3:
+        offset[1] = new_shape[1]-crop
+    elif crop_ind == 4:
+        offset = [0,0]
+    else:
+        offset = (new_shape - crop) / 2
+
+    img = tf.slice(img, begin=tf.pack([offset[0], offset[1], 0]), size=tf.pack([crop, crop, -1]))
+    # Mean subtraction
+    return tf.to_float(img) - mean
 
 def process_image(img, scale, isotropic, crop, mean):
     '''Crops, scales, and normalizes the given image.
@@ -71,20 +111,29 @@ class ImageProducer(object):
         self.close_path_queue_op = self.path_queue.close()
 
         # Create an operation that dequeues a single path and returns a processed image
-        (idx, processed_image) = self.process()
+        crop_flip = [[0,False]]
+        if cfg.CROP:
+            for i in range(1,5):
+                crop_flip.append([i,False])
 
+        if cfg.FLIP:
+            for i in range(len(crop_flip)):
+                crop_flip.append((crop_flip[i][0],True))
+
+        (processed_idx_list,processed_img_list) = self.process(crop_flip)
         # Create a queue that will contain the processed images (and their indices)
         image_shape = (self.data_spec.crop_size, self.data_spec.crop_size, self.data_spec.channels)
-        processed_queue = tf.FIFOQueue(capacity=int(np.ceil(num_images / float(num_concurrent))),
+        processed_queue = tf.FIFOQueue(capacity=int(np.ceil(len(crop_flip)*num_images / float(num_concurrent))),
                                        dtypes=[tf.int32, tf.float32],
                                        shapes=[(), image_shape],
                                        name='processed_queue')
 
         # Enqueue the processed image and path
-        enqueue_processed_op = processed_queue.enqueue([idx, processed_image])
+        enqueue_processed_op = processed_queue.enqueue_many([processed_idx_list,processed_img_list])
 
         # Create a dequeue op that fetches a batch of processed images off the queue
-        self.dequeue_op = processed_queue.dequeue_many(batch_size)
+        [self.ind_deq,self.img_deq] = processed_queue.dequeue_many(batch_size)
+        self.dequeue_op = [self.ind_deq,self.img_deq]
 
         # Create a queue runner to perform the processing operations in parallel
         num_concurrent = min(num_concurrent, num_images)
@@ -130,19 +179,29 @@ class ImageProducer(object):
             img = tf.reverse(img, [False, False, True])
         return img
 
-    def process(self):
+    def process(self,crop_flip):
         # Dequeue a single image path
         idx, is_jpeg, image_path = self.path_queue.dequeue()
         # Load the image
-        img = self.load_image(image_path, is_jpeg)
         # Process the image
-        processed_img = process_image(img=img,
-                                      scale=self.data_spec.scale_size,
-                                      isotropic=self.data_spec.isotropic,
-                                      crop=self.data_spec.crop_size,
-                                      mean=self.data_spec.mean)
+        img_list = []
+        idx_list = []
+        for (c,f) in crop_flip:
+            img = self.load_image(image_path, is_jpeg)
+            processed_img = process_image_adv(img=img,
+                                          scale=self.data_spec.scale_size,
+                                          isotropic=self.data_spec.isotropic,
+                                          crop=self.data_spec.crop_size,
+                                          mean=self.data_spec.mean,
+                                              flip=f,
+                                              crop_ind=c)
+            img_list.append(processed_img)
+            idx_list.append(idx)
         # Return the processed image, along with its index
-        return (idx, processed_img)
+
+        processed_idx_list = tf.pack(idx_list)
+        processed_img_list = tf.pack(img_list)
+        return (processed_idx_list, processed_img_list)
 
     @staticmethod
     def create_extension_mask(paths):

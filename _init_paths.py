@@ -8,4 +8,4 @@ def add_path(path):
 
 this_dir = osp.dirname(__file__)
 
-add_path(this_dir,'caffe-tensorflow')
+add_path(osp.join(this_dir,'caffe-tensorflow'))

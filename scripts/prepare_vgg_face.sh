@@ -9,6 +9,11 @@ fi
 CUR_DIR=`pwd`
 
 #download vgg_face if necessary
+if ! [ -a data ]; then
+    echo "Create or link a directory named 'data' in the root of the project first"
+    exit
+fi
+
 if ! [ -d data/vgg_face_caffe ]; then
 echo "Downloading vgg_face"
 wget http://www.robots.ox.ac.uk/~vgg/software/vgg_face/src/vgg_face_caffe.tar.gz data/vgg_face_caffe
