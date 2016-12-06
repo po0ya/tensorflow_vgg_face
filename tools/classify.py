@@ -36,34 +36,6 @@ def display_results(image_paths, probs):
         confidence = round(probs[img_idx, class_indices[img_idx]] * 100, 2)
         print('{:20} {:30} {} %'.format(img_name, class_name, confidence))
 
-def classify_simple(model_data_path,image_path):
-    spec = datasets.get_data_spec(model_class=VGG_FACE_16)
-
-    input_node = tf.placeholder(tf.float32,
-                                shape=(None, spec.crop_size, spec.crop_size, spec.channels))
-    net = VGG_FACE_16({'data': input_node})
-
-    with tf.Session() as sesh:
-        # Start the image processing workers
-        # Load the converted parameters
-        print('Loading the model')
-        net.load(model_data_path, sesh)
-
-        # Load the input image
-        print('Loading the images')
-        img = cv2.imread(image_path)
-        processed_img = process_image(img=img,
-                                      scale=spec.scale_size,
-                                      isotropic=spec.isotropic,
-                                      crop=spec.crop_size,
-                                      mean=spec.mean)
-
-
-
-        # Perform a forward pass through the network to get the class probabilities
-        print('Classifying')
-        embeddings = sesh.run(net.get_output(), feed_dict={input_node: input_image})
-
 def classify(model_data_path, image_pairs_fp, base_path, save_feats_fp=''):
     '''Classify the given images using VGG FACE.'''
 
@@ -80,9 +52,10 @@ def classify(model_data_path, image_pairs_fp, base_path, save_feats_fp=''):
     with open(image_pairs_fp,'r') as f:
         im_pairs_lines = f.readlines()
     temp = im_pairs_lines[0].split()
-    num_splits = int(temp[0])
-    num_pairs = int(temp[1])
-
+    # num_splits = int(temp[0])
+    # num_pairs = int(temp[1])
+    num_splits = 1
+    num_pairs = int(temp[0])
     ctr = 1
     # for _ in range(2):
     #     l = im_pairs_lines[ctr].split()
@@ -203,7 +176,7 @@ def classify(model_data_path, image_pairs_fp, base_path, save_feats_fp=''):
         else:
             fp+=1
             tpr.append(tp*1.0/(num_splits*num_pairs))
-            fpr.append(fp/(num_splits*num_pairs))
+            fpr.append(fp*1.0/(num_splits*num_pairs))
 
     plt.plot(fpr,tpr)
     plt.savefig('data/roc.pdf')
@@ -214,27 +187,28 @@ def classify(model_data_path, image_pairs_fp, base_path, save_feats_fp=''):
             f.write('{} {} \n'.format(tpr[i],fpr[i]))
 
     ### Get accuracy
-    split_accuracies = np.zeros(num_splits)
-    for i in range(num_splits):
-        flags = np.zeros(2*num_pairs*num_splits,dtype=np.bool)
-        flags[2*num_pairs*i:2*num_pairs*(i+1)] = True
-        test_scores = scores[flags]
-        test_labels = verif_labels[flags]
-        dev_scores = scores[np.logical_not(flags)]
-        dev_labels = verif_labels[np.logical_not(flags)].astype(np.bool)
-        max_acc = 0
-        final_th = 0
-        for j in range(dev_scores.shape[0]-1):
-            th = (dev_scores[j]+dev_scores[j+1])/2.0
-            correct_preds = (dev_scores < th) == dev_labels
-            if max_acc < np.mean(correct_preds):
-                max_acc = np.mean(correct_preds)
-                final_th = th
+    if num_splits > 1:
+        split_accuracies = np.zeros(num_splits)
+        for i in range(num_splits):
+            flags = np.zeros(2*num_pairs*num_splits,dtype=np.bool)
+            flags[2*num_pairs*i:2*num_pairs*(i+1)] = True
+            test_scores = scores[flags]
+            test_labels = verif_labels[flags]
+            dev_scores = scores[np.logical_not(flags)]
+            dev_labels = verif_labels[np.logical_not(flags)].astype(np.bool)
+            max_acc = 0
+            final_th = 0
+            for j in range(dev_scores.shape[0]-1):
+                th = (dev_scores[j]+dev_scores[j+1])/2.0
+                correct_preds = (dev_scores < th) == dev_labels
+                if max_acc < np.mean(correct_preds):
+                    max_acc = np.mean(correct_preds)
+                    final_th = th
 
-        correct_test_preds = ((test_scores < final_th) == test_labels)
-        split_accuracies[i] = np.mean(correct_test_preds)
+            correct_test_preds = ((test_scores < final_th) == test_labels)
+            split_accuracies[i] = np.mean(correct_test_preds)
 
-    print('Accuracy: {:.4} +- {:.4}'.format(np.mean(split_accuracies),np.std(split_accuracies)))
+        print('Accuracy: {:.4} +- {:.4}'.format(np.mean(split_accuracies),np.std(split_accuracies)))
 
 
 

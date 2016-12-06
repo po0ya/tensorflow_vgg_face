@@ -10,7 +10,7 @@ cfg = __C
 __C.FLIP=False
 __C.CROP=False
 __C.DEBUG=False
-__C.BATCH_SIZE=100
+__C.BATCH_SIZE=20
 
 def cfg_from_file(filename):
     """Load a config file and merge it into the default options."""

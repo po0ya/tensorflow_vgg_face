@@ -8,8 +8,8 @@ __pycache__/
 
 # PyCharm
 .idea/
-data/
-debug/
+data
+debug
 # Distribution / packaging
 .Python
 env/
