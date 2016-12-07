@@ -1,16 +1,16 @@
 # `pip install easydict` if you don't have it
 from easydict import EasyDict as edict
 
-
 __C = edict()
 # can get config by:
 #   from  config import cfg
 cfg = __C
 
-__C.FLIP=False
-__C.CROP=False
-__C.DEBUG=False
-__C.BATCH_SIZE=20
+__C.FLIP = True
+__C.CROP = False
+__C.DEBUG = False
+__C.BATCH_SIZE = 20
+
 
 def cfg_from_file(filename):
     """Load a config file and merge it into the default options."""
@@ -42,6 +42,7 @@ def cfg_from_list(cfg_list):
             'type {} does not match original type {}'.format(
                 type(value), type(d[subkey]))
         d[subkey] = value
+
 
 def _merge_a_into_b(a, b):
     """Merge config dictionary a into config dictionary b, clobbering the

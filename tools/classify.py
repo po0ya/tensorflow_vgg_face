@@ -36,7 +36,7 @@ def display_results(image_paths, probs):
         confidence = round(probs[img_idx, class_indices[img_idx]] * 100, 2)
         print('{:20} {:30} {} %'.format(img_name, class_name, confidence))
 
-def classify(model_data_path, image_pairs_fp, base_path, save_feats_fp=''):
+def classify(model_data_path, image_pairs_fp, base_path, save_feats_fp='',bbox_fp=None):
     '''Classify the given images using VGG FACE.'''
 
     # Get the data specifications for the GoogleNet model
@@ -87,11 +87,11 @@ def classify(model_data_path, image_pairs_fp, base_path, save_feats_fp=''):
             print('Error reading {}'.format(save_feats_fp))
 
     if get_ems:
-        image_producer = dataset.LFWProducer(image_paths,base_path, data_spec=spec)
+        image_producer = dataset.LFWProducer(image_paths,base_path, data_spec=spec,bbox_fp=bbox_fp)
         all_embeddings = {}
 
-        input_node = tf.placeholder(tf.float32,
-                                    shape=(None, spec.crop_size, spec.crop_size, spec.channels))
+        # input_node = tf.placeholder(tf.float32,
+        #                             shape=(None, spec.crop_size, spec.crop_size, spec.channels))
 
         num_feats_per_image = 1
         if cfg.FLIP:
@@ -108,8 +108,8 @@ def classify(model_data_path, image_pairs_fp, base_path, save_feats_fp=''):
             # Load the converted parameters
             print('Loading the model')
 
-            #net = VGG_FACE_16({'data':  image_producer.img_deq})
-            net = VGG_FACE_16({'data':  input_node})
+            net = VGG_FACE_16({'data':  image_producer.img_deq})
+            #net = VGG_FACE_16({'data':  input_node})
             net.load(model_data_path, sesh,ignore_missing=True)
 
             num_loaded = 0
@@ -121,22 +121,31 @@ def classify(model_data_path, image_pairs_fp, base_path, save_feats_fp=''):
                 # print('Classifying {}'.format(num_loaded*1.0/len(image_paths)))
                 if coordinator.should_stop():
                     break
-                indices, input_images = image_producer.get(sesh)
+                # indices, input_images = image_producer.get(sesh)
 
                 # indices, input_images = sesh.run([image_producer.ind_deq, image_producer.img_deq])
 
                 # for k in range(indices.shape[0]):
                 #     cv2.imwrite('./debug/{}.jpg'.format(num_loaded+k),input_images[k,...].squeeze())
-                probs = sesh.run(net.get_output(), feed_dict={input_node: input_images})
-
-                #[probs,indices,imgs] = sesh.run([net.get_output(),image_producer.ind_deq.name,image_producer.img_deq.name])
-                for i in range(0,indices.shape[0]):
-                    # cv2.imwrite('./debug/{}_{}.jpg'.format(indices[i],i),imgs[i,...].squeeze())
-                    if not image_paths[indices[i]] in all_embeddings.keys():
-                        all_embeddings[image_paths[indices[i]]]=probs[i,:]
-                    else:
-                        all_embeddings[image_paths[indices[i]]]+=probs[i,:]
-                num_loaded = num_loaded + indices.shape[0]
+                # probs = sesh.run(net.get_output(), feed_dict={input_node: input_images})
+                if cfg.DEBUG:
+                    [probs, indices, imgs] = sesh.run(
+                        [net.get_output(), image_producer.ind_deq.name, image_producer.img_deq.name])
+                    for i in range(0, indices.shape[0]):
+                        cv2.imwrite('./debug/{}_{}.jpg'.format(indices[i],i),imgs[i,...].squeeze())
+                        if not image_paths[indices[i]] in all_embeddings.keys():
+                            all_embeddings[image_paths[indices[i]]] = probs[i, :]
+                        else:
+                            all_embeddings[image_paths[indices[i]]] += probs[i, :]
+                            exit(0)
+                else:
+                    [probs,indices] = sesh.run([net.get_output(),image_producer.ind_deq.name])
+                    for i in range(0,indices.shape[0]):
+                        if not image_paths[indices[i]] in all_embeddings.keys():
+                            all_embeddings[image_paths[indices[i]]]=probs[i,:]
+                        else:
+                            all_embeddings[image_paths[indices[i]]]+=probs[i,:]
+                    num_loaded = num_loaded + indices.shape[0]
                 print('Classified {}'.format(num_loaded*1.0/num_imgs_in_queue))
 
 
@@ -220,6 +229,7 @@ def main():
     parser.add_argument('--base_path', required = True, help='The root of LFW where the directories with Firstname_Lastname reside')
     parser.add_argument('--save_feats_path',default=None,help='Save fc7 embeddings to a file (optional)')
     parser.add_argument('--cfg',dest='cfg_file',default=None,help='Config file for testing (optional)')
+    parser.add_argument('--bbox_file',dest='bbox_file',default=None,help='File containing dictionary of face bboxes (optional)')
 
 
     args = parser.parse_args()
@@ -231,7 +241,7 @@ def main():
         cfg_from_file(args.cfg_file)
 
     # Classify the image
-    classify(args.model_path, args.image_test_pairs,args.base_path,args.save_feats_path)
+    classify(args.model_path, args.image_test_pairs,args.base_path,args.save_feats_path,bbox_fp = args.bbox_file)
 
 
 if __name__ == '__main__':
