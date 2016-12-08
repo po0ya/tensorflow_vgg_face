@@ -154,7 +154,7 @@ class ImageProducer(object):
 
 class VGGFaceProducer(ImageProducer):
 
-    def __init__(self, image_paths, data_spec ,num_concurrent=4,bbox_fp=None):
+    def __init__(self, image_paths, data_spec ,num_concurrent=4,bbox_fp=None,labels=None):
         round_rect = lambda x: [int(p) for p in x]
         try:
             v = self.face_bboxes
@@ -166,7 +166,7 @@ class VGGFaceProducer(ImageProducer):
 
         # Initialize base
         super(VGGFaceProducer, self).__init__(image_paths=image_paths,
-                                               data_spec=data_spec,num_concurrent=num_concurrent)
+                                               data_spec=data_spec,num_concurrent=num_concurrent,labels=labels)
 
     def setup(self, batch_size, num_concurrent):
         # Validate the batch size
