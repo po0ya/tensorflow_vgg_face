@@ -7,7 +7,6 @@ from config_tfvgg import cfg
 
 FLAGS = tf.app.flags.FLAGS
 
-
 def process_image(img, scale, isotropic, crop, mean, flip=False, crop_ind=0, face_bbox=None):
     '''Crops, scales, and normalizes the given image.
     scale : The image wil be first scaled to this size.
