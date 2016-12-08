@@ -260,7 +260,7 @@ class VGGFaceProducer(ImageProducer):
         return (processed_idx_list, processed_img_list)
 
 class LFWProducer(VGGFaceProducer):
-    def __init__(self, val_path, data_path, data_spec,bbox_fp=None,num_concurrent=4):
+    def __init__(self, val_path, data_path, data_spec,bbox_fp=None,num_concurrent=4,labels=None):
         round_rect = lambda x: [int(p) for p in x]
         image_paths = [osp.join(data_path, p) for p in val_path]
         self.face_bboxes=None
@@ -268,5 +268,5 @@ class LFWProducer(VGGFaceProducer):
             face_bboxes=cPickle.load(open(bbox_fp,'r'))
             self.face_bboxes = [round_rect(face_bboxes[p][0]) for p in val_path]
         super(LFWProducer, self).__init__(image_paths=image_paths,
-                                               data_spec=data_spec,num_concurrent=num_concurrent)
+                                               data_spec=data_spec,num_concurrent=num_concurrent,labels=labels)
 
