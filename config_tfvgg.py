@@ -11,7 +11,7 @@ __C.CROP = False
 __C.DEBUG = False
 __C.BATCH_SIZE = 20
 
-
+### From FAST RCNN config
 def cfg_from_file(filename):
     """Load a config file and merge it into the default options."""
     import yaml

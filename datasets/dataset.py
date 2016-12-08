@@ -8,7 +8,7 @@ from config_tfvgg import cfg
 FLAGS = tf.app.flags.FLAGS
 
 
-def process_image_adv(img, scale, isotropic, crop, mean,flip=False,crop_ind=0,face_bbox=None):
+def process_image(img, scale, isotropic, crop, mean, flip=False, crop_ind=0, face_bbox=None):
     '''Crops, scales, and normalizes the given image.
     scale : The image wil be first scaled to this size.
             If isotropic is true, the smaller side is rescaled to this,
@@ -46,30 +46,6 @@ def process_image_adv(img, scale, isotropic, crop, mean,flip=False,crop_ind=0,fa
     else:
         offset = (new_shape - crop) / 2
 
-    img = tf.slice(img, begin=tf.pack([offset[0], offset[1], 0]), size=tf.pack([crop, crop, -1]))
-    # Mean subtraction
-    return tf.to_float(img) - mean
-
-def process_image(img, scale, isotropic, crop, mean):
-    '''Crops, scales, and normalizes the given image.
-    scale : The image wil be first scaled to this size.
-            If isotropic is true, the smaller side is rescaled to this,
-            preserving the aspect ratio.
-    crop  : After scaling, a central crop of this size is taken.
-    mean  : Subtracted from the image
-    '''
-    # Rescale
-    if isotropic:
-        img_shape = tf.to_float(tf.shape(img)[:2])
-        min_length = tf.minimum(img_shape[0], img_shape[1])
-        new_shape = tf.to_int32((scale / min_length) * img_shape)
-    else:
-        new_shape = tf.pack([scale, scale])
-    img = tf.image.resize_images(img, new_shape)
-    # Center crop
-    # Use the slice workaround until crop_to_bounding_box supports deferred tensor shapes
-    # See: https://github.com/tensorflow/tensorflow/issues/521
-    offset = (new_shape - crop) / 2
     img = tf.slice(img, begin=tf.pack([offset[0], offset[1], 0]), size=tf.pack([crop, crop, -1]))
     # Mean subtraction
     return tf.to_float(img) - mean
@@ -141,13 +117,13 @@ class ImageProducer(object):
         for (c,f) in crop_flip:
             img = self.load_image(image_path, is_jpeg)
 
-            processed_img = process_image_adv(img=img,
+            processed_img = process_image(img=img,
                                           scale=self.data_spec.scale_size,
                                           isotropic=self.data_spec.isotropic,
                                           crop=self.data_spec.crop_size,
                                           mean=self.data_spec.mean,
-                                              flip=f,
-                                              crop_ind=c)
+                                          flip=f,
+                                          crop_ind=c)
             img_list.append(processed_img)
             idx_list.append(idx)
         # Return the processed image, along with its index
@@ -268,14 +244,14 @@ class VGGFaceProducer(ImageProducer):
         for (c,f) in crop_flip:
             img = self.load_image(image_path, is_jpeg)
 
-            processed_img = process_image_adv(img=img,
+            processed_img = process_image(img=img,
                                           scale=self.data_spec.scale_size,
                                           isotropic=self.data_spec.isotropic,
                                           crop=self.data_spec.crop_size,
                                           mean=self.data_spec.mean,
-                                              flip=f,
-                                              crop_ind=c,
-                                              face_bbox=face_bbox)
+                                          flip=f,
+                                          crop_ind=c,
+                                          face_bbox=face_bbox)
             img_list.append(processed_img)
             idx_list.append(idx)
         # Return the processed image, along with its index
