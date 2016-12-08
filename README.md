@@ -1,6 +1,6 @@
 # Tensorflow VGG Face
 
-Face features based on [VGG FACE [0]](http://www.robots.ox.ac.uk/~vgg/software/vgg_face/)
+Face features of [VGG FACE [0]](http://www.robots.ox.ac.uk/~vgg/software/vgg_face/). The code is based on [Caffe-tensorflow](https://github.com/ethereon/caffe-tensorflow)
 
 
 #### Requirements
@@ -32,3 +32,5 @@ and `cPickle.dump` it to `data/lfw/imgs/img_list_bboxes.pckl`.
  [0]  O. M. Parkhi, A. Vedaldi, A. Zisserman, Deep Face Recognition, British Machine Vision Conference, 2015 
  
  [1] Gary B. Huang, Manu Ramesh, Tamara Berg, and Erik Learned-Miller. Labeled Faces in the Wild: A Database for Studying Face Recognition in Unconstrained Environments. University of Massachusetts, Amherst, Technical Report 07-49, October, 2007.
+ 
+ [2]
