@@ -3,7 +3,7 @@ import cPickle
 import os.path as osp
 import numpy as np
 import tensorflow as tf
-from config import cfg
+from config_tfvgg import cfg
 
 FLAGS = tf.app.flags.FLAGS
 

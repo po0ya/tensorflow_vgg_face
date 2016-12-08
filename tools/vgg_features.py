@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import _init_paths
+import _init_paths_tfvgg
 
 import argparse
 
@@ -12,10 +12,10 @@ import os.path as osp
 
 import datasets
 import datasets.dataset as dataset
-from config import cfg_from_list, cfg_from_file
+from config_tfvgg import cfg_from_list, cfg_from_file
 from datasets.dataset import process_image
 from models.vgg.vgg_face_embedding import VGG_FACE_16
-from config import cfg
+from config_tfvgg import cfg
 import matplotlib.pyplot as plt
 import sys
 

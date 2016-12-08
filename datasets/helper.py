@@ -1,6 +1,6 @@
 #MODIFIED CAFFE_TENSORFLOW
 import numpy as np
-from config import cfg
+from config_tfvgg import cfg
 from models.vgg.vgg_face_embedding import VGG_FACE_16
 
 class DataSpec(object):
