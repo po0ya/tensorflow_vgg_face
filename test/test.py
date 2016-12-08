@@ -66,6 +66,9 @@ def main():
         print('MSE matcaffe and tensorflow: {}'.format(np.sum(np.square(matcaffe_ft - probs)) / (np.sum(np.square(matcaffe_ft) + np.square(probs)))))
 
 
+        coordinator.request_stop()
+        coordinator.join(threads, stop_grace_period_secs=2)
+
 
 
 
