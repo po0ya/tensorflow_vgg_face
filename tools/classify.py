@@ -18,7 +18,7 @@ from models.vgg.vgg_face_embedding import VGG_FACE_16
 from config import cfg
 import matplotlib.pyplot as plt
 import sys
-
+from vgg_features import get_features
 
 def display_results(image_paths, probs):
     '''Displays the classification results given the class probability for each image'''
@@ -36,32 +36,23 @@ def display_results(image_paths, probs):
         confidence = round(probs[img_idx, class_indices[img_idx]] * 100, 2)
         print('{:20} {:30} {} %'.format(img_name, class_name, confidence))
 
-def classify(model_data_path, image_pairs_fp, base_path, save_feats_fp='',bbox_fp=None):
-    '''Classify the given images using VGG FACE.'''
-
-    # Get the data specifications for the GoogleNet model
-    spec = datasets.get_data_spec(model_class=VGG_FACE_16)
-
-    # Create a placeholder for the input image
-    #input_node = tf.placeholder(tf.float32,
-    #                            shape=(None, spec.crop_size, spec.crop_size, spec.channels))
-
-    # Construct the network
-
+def classify_lfw(model_data_path, image_pairs_fp, base_path, save_feats_fp='',bbox_fp=None):
+    '''
+    :param model_data_path:
+    :param image_pairs_fp:
+    :param base_path:
+    :param save_feats_fp:
+    :param bbox_fp:
+    :return:
+    '''
     image_paths = []
     with open(image_pairs_fp,'r') as f:
         im_pairs_lines = f.readlines()
     temp = im_pairs_lines[0].split()
-    # num_splits = int(temp[0])
-    # num_pairs = int(temp[1])
-    num_splits = 1
-    num_pairs = int(temp[0])
+    num_splits = int(temp[0])
+    num_pairs = int(temp[1])
     ctr = 1
-    # for _ in range(2):
-    #     l = im_pairs_lines[ctr].split()
-    #     image_paths.append('{}/{}_{:04d}.jpg'.format(l[0],l[0],int(l[1])))
-    #     image_paths.append('{}/{}_{:04d}.jpg'.format(l[0],l[0],int(l[2])))
-    #     ctr = ctr+1
+
     for _ in range(num_splits):
         for _ in range(num_pairs):
             l = im_pairs_lines[ctr].split()
@@ -75,97 +66,18 @@ def classify(model_data_path, image_pairs_fp, base_path, save_feats_fp='',bbox_f
             image_paths.append('{}/{}_{:04d}.jpg'.format(l[2],l[2],int(l[3])))
             ctr = ctr+1
 
-    # Create an image producer (loads and processes images in parallel)
-    get_ems = True
-    if save_feats_fp is not None and osp.exists(save_feats_fp):
-        try:
-            with open(save_feats_fp, 'r') as f:
-                print('Loading from {}'.format(save_feats_fp))
-                all_embeddings = cPickle.load(f)
-                get_ems = False
-        except:
-            print('Error reading {}'.format(save_feats_fp))
 
-    if get_ems:
-        image_producer = dataset.LFWProducer(image_paths,base_path, data_spec=spec,bbox_fp=bbox_fp)
-        all_embeddings = {}
+    spec = datasets.get_data_spec(model_class=VGG_FACE_16)
 
-        # input_node = tf.placeholder(tf.float32,
-        #                             shape=(None, spec.crop_size, spec.crop_size, spec.channels))
+    image_producer = dataset.LFWProducer(image_paths, base_path, data_spec=spec, bbox_fp=bbox_fp)
 
-        num_feats_per_image = 1
-        if cfg.FLIP:
-            num_feats_per_image = num_feats_per_image * 2
-
-        if cfg.CROP:
-            num_feats_per_image = num_feats_per_image * 5
-
-        with tf.Session() as sesh:
-            # Start the image processing workers
-            coordinator = tf.train.Coordinator()
-            threads = image_producer.start(session=sesh, coordinator=coordinator)
-
-            # Load the converted parameters
-            print('Loading the model')
-
-            net = VGG_FACE_16({'data':  image_producer.img_deq})
-            #net = VGG_FACE_16({'data':  input_node})
-            net.load(model_data_path, sesh,ignore_missing=True)
-
-            num_loaded = 0
-            num_imgs_in_queue = len(image_paths)*num_feats_per_image
-
-
-            while num_loaded < num_imgs_in_queue:
-                # Perform a forward pass through the network to get the class probabilities
-                # print('Classifying {}'.format(num_loaded*1.0/len(image_paths)))
-                if coordinator.should_stop():
-                    break
-                # indices, input_images = image_producer.get(sesh)
-
-                # indices, input_images = sesh.run([image_producer.ind_deq, image_producer.img_deq])
-
-                # for k in range(indices.shape[0]):
-                #     cv2.imwrite('./debug/{}.jpg'.format(num_loaded+k),input_images[k,...].squeeze())
-                # probs = sesh.run(net.get_output(), feed_dict={input_node: input_images})
-                if cfg.DEBUG:
-                    [probs, indices, imgs] = sesh.run(
-                        [net.get_output(), image_producer.ind_deq.name, image_producer.img_deq.name])
-                    for i in range(0, indices.shape[0]):
-                        cv2.imwrite('./debug/{}_{}.jpg'.format(indices[i],i),imgs[i,...].squeeze())
-                        if not image_paths[indices[i]] in all_embeddings.keys():
-                            all_embeddings[image_paths[indices[i]]] = probs[i, :]
-                        else:
-                            all_embeddings[image_paths[indices[i]]] += probs[i, :]
-                            exit(0)
-                else:
-                    [probs,indices] = sesh.run([net.get_output(),image_producer.ind_deq.name])
-                    for i in range(0,indices.shape[0]):
-                        if not image_paths[indices[i]] in all_embeddings.keys():
-                            all_embeddings[image_paths[indices[i]]]=probs[i,:]
-                        else:
-                            all_embeddings[image_paths[indices[i]]]+=probs[i,:]
-                    num_loaded = num_loaded + indices.shape[0]
-                print('Classified {}'.format(num_loaded*1.0/num_imgs_in_queue))
-
-
-            # for imp in image_paths:
-            #     all_embeddings[imp] = all_embeddings[imp]/5.0
-
-            # Stop the worker threads
-            coordinator.request_stop()
-            coordinator.join(threads, stop_grace_period_secs=2)
-        if save_feats_fp is not None:
-            with open(save_feats_fp,'w') as f:
-                cPickle.dump(all_embeddings,f,cPickle.HIGHEST_PROTOCOL)
-    else:
-        with open(save_feats_fp, 'r') as f:
-            print('Loading from {}'.format(save_feats_fp))
-            all_embeddings = cPickle.load(f)
+    all_embeddings = get_features(model_data_path, image_producer, save_feats_fp=save_feats_fp, bbox_fp=bbox_fp)
 
     verif_labels = np.concatenate((np.ones(num_pairs),np.zeros(num_pairs)))
     for _ in range(num_splits-1):
         verif_labels = np.concatenate((verif_labels,np.concatenate((np.ones(num_pairs), np.zeros(num_pairs)))))
+
+    image_paths = image_producer.image_paths
 
     scores = np.zeros(2*num_pairs*num_splits)
     euc_dist = lambda x,y: np.sqrt(np.sum(np.square(x-y)))
@@ -241,7 +153,7 @@ def main():
         cfg_from_file(args.cfg_file)
 
     # Classify the image
-    classify(args.model_path, args.image_test_pairs,args.base_path,args.save_feats_path,bbox_fp = args.bbox_file)
+    classify_lfw(args.model_path, args.image_test_pairs, args.base_path, args.save_feats_path, bbox_fp = args.bbox_file)
 
 
 if __name__ == '__main__':

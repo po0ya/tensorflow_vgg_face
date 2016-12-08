@@ -92,58 +92,6 @@ class ImageProducer(object):
         # Create the loading and processing operations
         self.setup(batch_size=batch_size, num_concurrent=num_concurrent)
 
-    def setup(self, batch_size, num_concurrent):
-        # Validate the batch size
-        num_images = len(self.image_paths)
-        batch_size = min(num_images, batch_size or self.data_spec.batch_size)
-        if num_images % batch_size != 0:
-            raise ValueError(
-                'The total number of images ({}) must be divisible by the batch size ({}).'.format(
-                    num_images, batch_size))
-        self.num_batches = num_images / batch_size
-
-        # Create a queue that will contain image paths (and their indices and extension indicator)
-        self.path_bbox_queue = tf.FIFOQueue(capacity=num_images,
-                                            dtypes=[tf.int32, tf.bool, tf.string],
-                                            name='path_queue')
-
-        # Enqueue all image paths, along with their indices
-        indices = tf.range(num_images)
-        self.enqueue_paths_op = self.path_bbox_queue.enqueue_many([indices, self.extension_mask,
-                                                                   self.image_paths])
-        # Close the path queue (no more additions)
-        self.close_path_queue_op = self.path_bbox_queue.close()
-
-        # Create an operation that dequeues a single path and returns a processed image
-        crop_flip = [[0,False]]
-        if cfg.CROP:
-            for i in range(1,5):
-                crop_flip.append([i,False])
-
-        if cfg.FLIP:
-            for i in range(len(crop_flip)):
-                crop_flip.append((crop_flip[i][0],True))
-
-        (processed_idx_list,processed_img_list) = self.process(crop_flip)
-        # Create a queue that will contain the processed images (and their indices)
-        image_shape = (self.data_spec.crop_size, self.data_spec.crop_size, self.data_spec.channels)
-        processed_queue = tf.FIFOQueue(capacity=int(np.ceil(len(crop_flip)*num_images / float(num_concurrent))),
-                                       dtypes=[tf.int32, tf.float32],
-                                       shapes=[(), image_shape],
-                                       name='processed_queue')
-
-        # Enqueue the processed image and path
-        enqueue_processed_op = processed_queue.enqueue_many([processed_idx_list,processed_img_list])
-
-        # Create a dequeue op that fetches a batch of processed images off the queue
-        [self.ind_deq,self.img_deq] = processed_queue.dequeue_many(batch_size)
-        self.dequeue_op = [self.ind_deq,self.img_deq]
-
-        # Create a queue runner to perform the processing operations in parallel
-        num_concurrent = min(num_concurrent, num_images)
-        self.queue_runner = tf.train.QueueRunner(processed_queue,
-                                                 [enqueue_processed_op] * num_concurrent)
-
     def start(self, session, coordinator, num_concurrent=4):
         '''Start the processing worker threads.'''
         # Queue all paths
@@ -224,19 +172,24 @@ class ImageProducer(object):
     def __len__(self):
         return len(self.image_paths)
 
+    def setup(self, batch_size, num_concurrent):
+        pass
 
-class LFWProducer(ImageProducer):
 
-    def __init__(self, val_path, data_path, data_spec,bbox_fp=None,num_concurrent=4):
+class VGGFaceProducer(ImageProducer):
+
+    def __init__(self, image_paths, data_spec ,num_concurrent=4,bbox_fp=None):
         round_rect = lambda x: [int(p) for p in x]
-        image_paths = [osp.join(data_path, p) for p in val_path]
-        self.face_bboxes=None
-        if bbox_fp is not None:
-            face_bboxes=cPickle.load(open(bbox_fp,'r'))
-            self.face_bboxes = [round_rect(face_bboxes[p][0]) for p in val_path]
+        try:
+            v = self.face_bboxes
+        except AttributeError:
+            self.face_bboxes = None
+            if bbox_fp is not None:
+                face_bboxes=cPickle.load(open(bbox_fp,'r'))
+                self.face_bboxes = [round_rect(face_bboxes[p][0]) for p in image_paths]
 
         # Initialize base
-        super(LFWProducer, self).__init__(image_paths=image_paths,
+        super(VGGFaceProducer, self).__init__(image_paths=image_paths,
                                                data_spec=data_spec,num_concurrent=num_concurrent)
 
     def setup(self, batch_size, num_concurrent):
@@ -297,6 +250,9 @@ class LFWProducer(ImageProducer):
         self.queue_runner = tf.train.QueueRunner(processed_queue,
                                                  [enqueue_processed_op] * num_concurrent)
 
+        self.num_imgs = len(crop_flip)*num_images
+        self.num_feats_per_image = len(crop_flip)
+
 
     def process(self,crop_flip):
         # Dequeue a single image path
@@ -327,3 +283,15 @@ class LFWProducer(ImageProducer):
         processed_idx_list = tf.pack(idx_list)
         processed_img_list = tf.pack(img_list)
         return (processed_idx_list, processed_img_list)
+
+class LFWProducer(VGGFaceProducer):
+    def __init__(self, val_path, data_path, data_spec,bbox_fp=None,num_concurrent=4):
+        round_rect = lambda x: [int(p) for p in x]
+        image_paths = [osp.join(data_path, p) for p in val_path]
+        self.face_bboxes=None
+        if bbox_fp is not None:
+            face_bboxes=cPickle.load(open(bbox_fp,'r'))
+            self.face_bboxes = [round_rect(face_bboxes[p][0]) for p in val_path]
+        super(LFWProducer, self).__init__(image_paths=image_paths,
+                                               data_spec=data_spec,num_concurrent=num_concurrent)
+

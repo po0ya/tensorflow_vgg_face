@@ -1,4 +1,5 @@
   #!/usr/bin/env bash
+set +x
 PYTHONPATH=`pwd`:$PYTHONPATH
 python /cfarhomes/pouya/gleuclid-data/pyproj/github/face_verification/tools/classify.py \
     --model_path data/vgg_face.npy \
