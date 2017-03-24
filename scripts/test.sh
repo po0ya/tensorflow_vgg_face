@@ -16,7 +16,7 @@ echo "addpath ${CAFFE_HOME}/matlab;
 model = '${CUR_DIR}/data/vgg_face_caffe/vgg_face_deploy_new.prototxt';
 weights = '${CUR_DIR}/data/vgg_face_caffe/VGG_FACE_new.caffemodel';
 " > init.m
-matlab -nodesktop -r "init,test,exit"
+matlab -nodesktop -r "init,code_test,exit"
 cd ..
 
 python test/test.py

@@ -1,11 +1,85 @@
 '''Utility functions and classes for handling image datasets.'''
 import cPickle
+
+import cv2
 import os.path as osp
 import numpy as np
 import tensorflow as tf
 from config_tfvgg import cfg
 
 FLAGS = tf.app.flags.FLAGS
+def get_facebox_dims(img_shape,face_bbox,target_size,crop_size,spec,crop_ind):
+    face_bbox = np.zeros_like(face_bbox)
+    center = np.floor(np.array([face_bbox[2] + face_bbox[0], face_bbox[3] + face_bbox[1]]) / 2)
+    dims = np.array([face_bbox[2] - face_bbox[0], face_bbox[3] - face_bbox[1]]) * scale
+    face_bbox[0] = max(0, (center[0] - dims[0] / 2).astype(np.int32))
+    face_bbox[2] = min(img_shape[1], (center[0] + dims[0] / 2).astype(np.int32))
+    face_bbox[1] = max(0, (center[1] - dims[1] / 2).astype(np.int32))
+    face_bbox[3] = min(img_shape[0], (center[1] + dims[1] / 2).astype(np.int32))
+
+    (scale, isotropic, crop, mean) = (spec.scale_size, spec.isotropic, spec.crop_size)
+
+    img_shape = np.array((face_bbox[3]-face_bbox[1]+1,face_bbox[2]-face_bbox[0]+1))
+    min_length = np.min(img_shape)
+    new_shape = np.ceil((target_size * 1.0 / min_length) * img_shape)
+
+    offset = ((new_shape - crop) / 2).astype(np.int32)
+
+    return new_shape,offset
+
+
+def process_image_reg(img_path,spec, flip=False, crop_ind=0, face_bbox=None,face_box_scale=1):
+    '''Crops, scales, and normalizes the given image.
+    scale : The image wil be first scaled to this size.
+            If isotropic is true, the smaller side is rescaled to this,
+            preserving the aspect ratio.
+    crop  : After scaling, depending on crop_ind a crop of the image is given.
+    crope_ind: 0 center, 1 SW, 2 SE, 3 NE, 4 NW crop
+    flip: Whether to flip the image
+    mean  : Subtracted from the image
+    '''
+
+    (scale, isotropic, crop, mean) = (spec.scale_size, spec.isotropic, spec.crop_size, spec.mean)
+    img = cv2.imread(img_path)
+
+    if face_bbox is not None:
+        face_bbox = np.array(face_bbox)
+        center =np.floor(np.array([face_bbox[2]+face_bbox[0],face_bbox[3]+face_bbox[1]])/2)
+        dims =np.array([face_bbox[2]-face_bbox[0],face_bbox[3]-face_bbox[1]]) * face_box_scale
+        face_bbox[0] = max(0,(center[0] - dims[0] / 2).astype(np.int32))
+        face_bbox[2] = min(img.shape[1],(center[0] + dims[0] / 2).astype(np.int32))
+        face_bbox[1] = max(0,(center[1] - dims[1] / 2).astype(np.int32))
+        face_bbox[3] = min(img.shape[0],(center[1] + dims[1] / 2).astype(np.int32))
+
+        img = img[face_bbox[1]:face_bbox[3],face_bbox[0]:face_bbox[2],:]
+
+    # Rescale
+    if flip:
+        img = img[:,::-1,:]
+
+    if isotropic:
+        img_shape = np.array(img.shape[:2])
+        min_length = np.min(img_shape)
+        new_shape = np.ceil((scale *1.0/ min_length) * img_shape)
+    else:
+        new_shape = np.array([scale, scale])
+    img = cv2.resize(img, tuple(new_shape.astype(np.int32).tolist()[::-1]))
+    offset = [0,0]
+    if crop_ind == 1:
+        offset[0] = new_shape[0]-crop
+        offset = new_shape-crop
+    elif crop_ind == 2:
+        offset = new_shape-crop
+    elif crop_ind == 3:
+        offset[1] = new_shape[1]-crop
+    elif crop_ind == 4:
+        offset = [0,0]
+    else:
+        offset = ((new_shape - crop) / 2).astype(np.int32)
+
+    img = img[offset[0]:offset[0]+crop,offset[1]:offset[1]+crop,:]
+    # Mean subtraction
+    return img.astype(np.float) - mean
 
 def process_image(img, scale, isotropic, crop, mean, flip=False, crop_ind=0, face_bbox=None):
     '''Crops, scales, and normalizes the given image.

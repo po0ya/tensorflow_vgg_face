@@ -21,8 +21,8 @@ def main():
     model_data_path = 'data/vgg_face.npy'
     with tf.Session() as sesh:
         # Load the converted parameters
-        base_path = './test/'
-        image_paths = ['test.png']
+        base_path = './code_test/'
+        image_paths = ['code_test.png']
         cfg.FLIP = False
         cfg.CROP = False
         print('Loading the model')
@@ -60,7 +60,7 @@ def main():
 
         print('MSE pycaffe and tensorflow: {}'.format(np.sum(np.square(caffe_ft - probs)) / (np.sum(np.square(caffe_ft) + np.square(probs)))))
 
-        matcaffe_ft = sio.loadmat('test/matcaffe_ft.mat')
+        matcaffe_ft = sio.loadmat('code_test/matcaffe_ft.mat')
 
         matcaffe_ft = matcaffe_ft['caffe_ft'].flatten()
         print('MSE matcaffe and tensorflow: {}'.format(np.sum(np.square(matcaffe_ft - probs)) / (np.sum(np.square(matcaffe_ft) + np.square(probs)))))

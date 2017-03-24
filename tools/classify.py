@@ -131,23 +131,27 @@ def classify_lfw(model_data_path, image_pairs_fp, base_path, save_feats_fp='',bb
 
         print('Accuracy: {:.4} +- {:.4}'.format(np.mean(split_accuracies),np.std(split_accuracies)))
 
-
-
-def main():
-    # Parse arguments
+def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_path', required = True, help='Converted parameters for the GoogleNet model')
-    parser.add_argument('--image_test_pairs', required = True, dest='image_test_pairs', help='LFW pairs.txt path')
-    parser.add_argument('--base_path', required = True, help='The root of LFW where the directories with Firstname_Lastname reside')
-    parser.add_argument('--save_feats_path',default=None,help='Save fc7 embeddings to a file (optional)')
-    parser.add_argument('--cfg',dest='cfg_file',default=None,help='Config file for testing (optional)')
-    parser.add_argument('--bbox_file',dest='bbox_file',default=None,help='File containing dictionary of face bboxes (optional)')
 
+    parser.add_argument('--model_path', required=True, help='Converted parameters for the GoogleNet model')
+    parser.add_argument('--image_test_pairs', required=True, dest='image_test_pairs', help='LFW pairs.txt path')
+    parser.add_argument('--base_path', required=True,
+                        help='The root of LFW where the directories with Firstname_Lastname reside')
+    parser.add_argument('--save_feats_path', default=None, help='Save fc7 embeddings to a file (optional)')
+    parser.add_argument('--cfg', dest='cfg_file', default=None, help='Config file for testing (optional)')
+    parser.add_argument('--bbox_file', dest='bbox_file', default=None,
+                        help='File containing dictionary of face bboxes (optional)')
 
-    args = parser.parse_args()
     if len(sys.argv) == 1:
        parser.print_help()
        sys.exit(1)
+    args = parser.parse_args()
+    return args
+
+def main():
+
+    args = parse_args()
 
     if args.cfg_file is not None:
         cfg_from_file(args.cfg_file)

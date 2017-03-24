@@ -28,6 +28,7 @@ class DataSpec(object):
         # The values below are ordered BGR, as many Caffe models are trained in this order.
         # Some of the earlier models (like AlexNet) used a spatial three-channeled mean.
         # However, using just the per-channel mean values instead doesn't affect things too much.
+
         self.mean = mean if mean is not None else np.array([104., 117., 124.])
         # Whether this model expects images to be in BGR order
         self.expects_bgr = True
@@ -43,7 +44,7 @@ def std_spec(batch_size, isotropic=True):
     return DataSpec(batch_size=batch_size, scale_size=256, crop_size=224, isotropic=isotropic)
 
 # Collection of sample auto-generated models
-MODELS = (VGG_FACE_16,)
+MODELS = ('face','imagenet',)
 
 # The corresponding data specifications for the sample models
 # These specifications are based on how the models were trained.
@@ -51,7 +52,9 @@ MODELS = (VGG_FACE_16,)
 
 
 MODEL_DATA_SPECS = {
-    VGG_FACE_16:DataSpec(batch_size=cfg.BATCH_SIZE, scale_size=256, crop_size=224, isotropic=True,mean=np.array([93.5940,104.7624,129.1863])),
+    'vgg_face':DataSpec(batch_size=cfg.BATCH_SIZE, scale_size=256, crop_size=224, isotropic=True,mean=np.array([93.5940,104.7624,129.1863])),
+    'imagenet': DataSpec(batch_size=cfg.BATCH_SIZE, scale_size=256, crop_size=224, isotropic=True,
+                          mean=np.array([102.9801, 115.9465, 122.7717])),
 }
 
 
